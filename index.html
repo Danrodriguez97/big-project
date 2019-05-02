@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<link rel="manifest" href="/manifest.json">
+
+
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+    
+    <style>
+		.content {
+			display: none;
+			margin: 1em;
+		}
+	</style>
+    
+    <style>
+       /* Set the size of the div element that contains the map */
+      #map {
+        height: 600px;  /* The height is 600 pixels */
+        width: 100%;  /* The width is the width of the web page */
+       }
+    </style>
+
+  <title>Find Events in Chicago</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom fonts for this template -->
+  <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="vendor/simple-line-icons/css/simple-line-icons.css">
+  <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Catamaran:100,200,300,400,500,600,700,800,900" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Muli" rel="stylesheet">
+
+  <!-- Plugin CSS -->
+  <link rel="stylesheet" href="device-mockups/device-mockups.min.css">
+
+  <!-- Custom styles for this template -->
+  <link href="css/new-age.min.css" rel="stylesheet">
+
+</head>
+
+<body id="page-top">
+
+  <!-- Navigation -->
+  <nav class="navbar navbar-expand-lg bg-primary sticky-top navbar-shrink" id="mainNav">
+    <div class="container">
+      <a class="navbar-brand js-scroll-trigger" href="#page-top">Find Events in Chicago</a>
+      <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="true" aria-label="Toggle navigation">
+        Menu
+        <i class="fas fa-bars"></i>
+      </button>
+      <div class="navbar-collapse collapse show" id="navbarResponsive" style="">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
+            <a class="nav-link js-scroll-trigger" href="#search">Search</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link js-scroll-trigger" href="#list">List</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link js-scroll-trigger" href="#map">Map</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <header class="masthead">
+    <div class="container h-100">
+      <div class="row h-100">
+        <div class="col-lg-7 my-auto">
+        
+    
+  <div class="content" id="search">
+      <div class="jumbotron">
+          <h1 class="display-4">Search For an Event</h1>
+        </div>
+        
+    <form id="filters">
+        <input name="event_description" type="text" id="event_description" value="">
+           
+    </form>    
+          <br> 
+
+    <button id="search" class="btn btn-outline-warning">Search</button>
+
+                 
+                <button id="start-record-btn" class="btn btn-outline-warning" title="Start Recording">Use Microphone </button>
+                <button id="pause-record-btn" class="btn btn-outline-warning" title="Pause Recording">Stop Microphone </button>
+                <p id="recording-instructions">Press the <strong>Use Microphone</strong> button and allow access.</p>
+                
+                
+
+
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script> 
+
+  <script>
+      try {
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recognition = new SpeechRecognition();
+}
+catch(e) {
+  console.error(e);
+  $('.no-browser-support').show();
+  $('.app').hide();
+}
+
+
+var noteTextarea = $('#event_description');
+var instructions = $('#recording-instructions');
+var notesList = $('ul#notes');
+
+var noteContent = '';
+
+// Get all notes from previous sessions and display them.
+var notes = getAllNotes();
+renderNotes(notes);
+
+
+
+
+// If false, the recording will stop after a few seconds of silence.
+// When true, the silence period is longer (about 15 seconds),
+// allowing us to keep recording even when the user pauses. 
+recognition.continuous = true;
+
+// This block is called every time the Speech APi captures a line. 
+recognition.onresult = function(event) {
+
+  // event is a SpeechRecognitionEvent object.
+  // It holds all the lines we have captured so far. 
+  // We only need the current one.
+  var current = event.resultIndex;
+
+  // Get a transcript of what was said.
+  var transcript = event.results[current][0].transcript;
+
+  // Add the current transcript to the contents of our Note.
+  // There is a weird bug on mobile, where everything is repeated twice.
+  // There is no official solution so far so we have to handle an edge case.
+  var mobileRepeatBug = (current == 1 && transcript == event.results[0][0].transcript);
+
+  if(!mobileRepeatBug) {
+    noteContent += transcript;
+    noteTextarea.val(noteContent);
+  }
+};
+
+recognition.onstart = function() { 
+  instructions.text('Voice recognition activated. Try speaking into the microphone.');
+}
+
+recognition.onspeechend = function() {
+  instructions.text('You were quiet for a while so voice recognition turned itself off.');
+}
+
+recognition.onerror = function(event) {
+  if(event.error == 'no-speech') {
+    instructions.text('No speech was detected. Try again.');  
+  };
+}
+
+
+$('#start-record-btn').on('click', function(e) {
+  if (noteContent.length) {
+    noteContent += ' ';
+  }
+  recognition.start();
+});
+
+
+$('#pause-record-btn').on('click', function(e) {
+  recognition.stop();
+  instructions.text('Voice recognition paused.');
+});
+
+// Sync the text inside the text area with the noteContent variable.
+noteTextarea.on('input', function() {
+  noteContent = $(this).val();
+})
+
+$('#save-note-btn').on('click', function(e) {
+  recognition.stop();
+
+  if(!noteContent.length) {
+    instructions.text('Could not save empty note. Please add a message to your note.');
+  }
+  else {
+    // Save note to localStorage.
+    // The key is the dateTime with seconds, the value is the content of the note.
+    saveNote(new Date().toLocaleString(), noteContent);
+
+    // Reset variables and update UI.
+    noteContent = '';
+    renderNotes(getAllNotes());
+    noteTextarea.val('');
+    instructions.text('Note saved successfully.');
+  }
+      
+})
+
+
+notesList.on('click', function(e) {
+  e.preventDefault();
+  var target = $(e.target);
+
+  // Listen to the selected note.
+  if(target.hasClass('listen-note')) {
+    var content = target.closest('.note').find('.content').text();
+    readOutLoud(content);
+  }
+
+  // Delete note.
+  if(target.hasClass('delete-note')) {
+    var dateTime = target.siblings('.date').text();  
+    deleteNote(dateTime);
+    target.closest('.note').remove();
+  }
+});
+
+
+
+
+
+
+function renderNotes(notes) {
+  var html = '';
+  if(notes.length) {
+    notes.forEach(function(note) {
+      html+= `<li class="note">
+        <p class="header">
+          <span class="date">${note.date}</span>
+          <a href="#" class="listen-note" title="Listen to Note">Listen to Note</a>
+          <a href="#" class="delete-note" title="Delete">Delete</a>
+        </p>
+        <p class="content">${note.content}</p>
+      </li>`;    
+    });
+  }
+  else {
+    html = '<li><p class="content">You don\'t have any notes yet.</p></li>';
+  }
+  notesList.html(html);
+}
+
+
+
+
+function getAllNotes() {
+  var notes = [];
+  var key;
+  for (var i = 0; i < localStorage.length; i++) {
+    key = localStorage.key(i);
+
+    if(key.substring(0,5) == 'note-') {
+      notes.push({
+        date: key.replace('note-',''),
+        content: localStorage.getItem(localStorage.key(i))
+      });
+    } 
+  }
+  return notes;
+}
+
+
+
+      </script>
+
+    
+  </div>
+    
+    
+  <div class="content" id="list">       
+
+    <div id="cards"></div>
+
+	<div class="card template" style="width: 18rem;">
+		<div class="card-body">
+			<h5 class="card-title"></h5>
+			<h6 class="card-subtitle mb-2 text-muted"></h6>
+			<p class="card-text"></p>
+	
+		</div>
+	</div> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> 
+      
+      
+      
+    <script>
+	    $(document).ready(function(){
+            var endpoint = "https://data.cityofchicago.org/resource/pk66-w54g.json?";
+
+                $("#search").on("click", function() {
+                    var filterString = $("#filters").serialize();
+                    console.log(filterString);
+       
+                    // clear the display
+                    $("#cards").empty();
+                    var searchString = $("#event_description").val();
+                    var myString = searchString;
+                    console.log(searchString);
+                    var url = endpoint + "&event_description=" + myString;
+                    console.log(url);
+
+       
+
+
+                    $.get(url, function(response) {
+                        console.log(response);
+
+                        $("#cards").append("<h2>There are " + response.length + "  Possible Events in Chicago!</h2>");
+                        
+                        var data = response;
+
+                        $.each(data, function(i,v){
+                        //console.log(i,v);
+
+                            // clone card
+                            var clone = $(".template").clone();
+                            // update values
+                            clone.find(".card-title").text(v.event_description);
+
+                            clone.find(".card-title").addClass(v.park_facility_name);
+//
+  //                          clone.find(".card-title").attr("data-status", v.status);
+//
+//                            clone.find(".card-subtitle").text("Created: " + v.creation_date);
+//            
+                              var start = v.reservation_start_date;
+                              var fixedStart = start.substring(0, start.lastIndexOf('T'));
+                              
+                              var end = v.reservation_end_date;
+                              var fixedEnd = start.substring(0, end.lastIndexOf('T'));
+                              
+                              
+                              clone.find(".card-text").html("Located: " +v.park_facility_name + 
+                                                            "<br />Start Date: " + fixedStart + 
+                                                            "<br />End Date: " + fixedEnd +
+                                                            "<br />Requestor: " + v.requestor_);
+     
+   
+                            clone.removeClass("template")
+
+
+            // insert into DOM
+            $("#cards").append(clone);
+  
+          });
+
+
+      })
+
+      });
+
+    });
+	</script>  
+   
+    
+
+
+
+  </div>
+  <div class="content" id="map">
+    Map Page
+      
+    <h3>Graffiti Removal Requests Map</h3>
+    <!--The div element for the map -->
+    <div id="map"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <script>
+// Initialize and add the map
+
+var markers = [];
+        
+var map;
+var infoWindow;
+
+function initMap() {
+  // The location of Chicago
+  var chicago = new google.maps.LatLng(41.8781, -87.6298);
+  // The map, centered at Chicago
+  
+  infowindow = new google.maps.InfoWindow();
+
+    
+    
+  map = new google.maps.Map(
+                document.getElementById('map'), {zoom: 11, center: chicago});
+    
+	    $(document).ready(function(){
+            var endpoint = "https://data.cityofchicago.org/resource/pk66-w54g.json?";
+            
+                $("#search").on("click", function() {
+                    DeleteMarkers();
+                    var filterString = $("#filters").serialize();
+                    console.log(filterString);
+       
+                    var searchString = $("#event_description").val();
+                    console.log(searchString);
+                    var url = endpoint + "&event_description=" + searchString;
+                    console.log(url);
+                    
+                    $.get(url, function(response) {
+                        
+                       var data = response;
+     
+                       $.each(data, function(i,v) {
+
+                            var request = {
+                              query: v.park_facility_name,
+                              fields: ['name', 'geometry'],
+                              locationBias: {radius: 100, center: {lat: 41.8781, lng: -87.6298}}
+                            };
+
+                            service = new google.maps.places.PlacesService(map);
+
+                            service.findPlaceFromQuery(request, function(results, status) {
+                              if (status === google.maps.places.PlacesServiceStatus.OK) {
+                                for (var i = 0; i < results.length; i++) {
+                                  createMarker(results[i]);
+                                }
+
+                                map.setCenter(results[0].geometry.location);
+                              }
+                            });
+                    
+                   });
+
+                   
+      });
+
+      });
+
+         
+
+    });
+    
+    
+    
+}
+
+          function DeleteMarkers() {
+        //Loop through all the markers and remove
+        for (var i = 0; i < markers.length; i++) {
+            markers[i].setMap(null);
+        }
+        markers = [];
+    }
+        
+        
+ function createMarker(place) {
+        var marker = new google.maps.Marker({
+          map: map,
+          position: place.geometry.location
+        });
+
+        google.maps.event.addListener(marker, 'click', function() {
+          infowindow.setContent(place.name);
+          infowindow.open(map, this);
+        });
+        markers.push(marker);
+
+      }
+
+    </script>
+    <!--Load the API from the specified URL
+    * The async attribute allows the browser to render the page while the API loads
+    * The key parameter will contain your own API key (which is not needed for this tutorial)
+    * The callback parameter executes the initMap() function
+    -->
+    
+      
+      <body>
+    <div id="map"></div>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBpy3aatZG6qzbySZcyMeEYaxs0cFjlt0o&libraries=places&callback=initMap" async defer></script>
+  </body>
+      
+    
+  </div>
+
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/js/bootstrap.min.js"></script>
+      
+
+    <script>
+      $(document).ready(function() {
+
+        function hideScreens() {
+          $(".content").hide();
+        }
+
+        $(".nav-link").on("click", function(){
+          hideScreens();
+          var target = $(this).attr("href");
+          $(target).show();
+        });
+
+      });
+    </script>
+            
+    <script>
+        // ServiceWorker is a progressive technology. Ignore unsupported browsers
+        if ('serviceWorker' in navigator) {
+          console.log('CLIENT: service worker registration in progress.');
+          navigator.serviceWorker.register('/service-worker.js').then(function() {
+            console.log('CLIENT: service worker registration complete.');
+          }, function() {
+            console.log('CLIENT: service worker registration failure.');
+          });
+        } else {
+          console.log('CLIENT: service worker is not supported.');
+        }    
+        
+        var version = 'v1::';
+
+        self.addEventListener("install", function(event) {
+          console.log('WORKER: install event in progress.');
+          event.waitUntil(
+            /* The caches built-in is a promise-based API that helps you cache responses,
+               as well as finding and deleting them.
+            */
+            caches
+              /* You can open a cache by name, and this method returns a promise. We use
+                 a versioned cache name here so that we can remove old cache entries in
+                 one fell swoop later, when phasing out an older service worker.
+              */
+              .open(version + 'fundamentals')
+              .then(function(cache) {
+                /* After the cache is opened, we can fill it with the offline fundamentals.
+                   The method below will add all resources we've indicated to the cache,
+                   after making HTTP requests for each of them.
+                */
+                return cache.addAll([
+                  '/',
+                  '/css/global.css',
+                  '/js/global.js'
+                ]);
+              })
+              .then(function() {
+                console.log('WORKER: install completed');
+              })
+          );
+        });
+        
+        self.addEventListener("fetch", function(event) {
+      console.log('WORKER: fetch event in progress.');
+
+      /* We should only cache GET requests, and deal with the rest of method in the
+         client-side, by handling failed POST,PUT,PATCH,etc. requests.
+      */
+      if (event.request.method !== 'GET') {
+        /* If we don't block the event as shown below, then the request will go to
+           the network as usual.
+        */
+        console.log('WORKER: fetch event ignored.', event.request.method, event.request.url);
+        return;
+      }
+      /* Similar to event.waitUntil in that it blocks the fetch event on a promise.
+         Fulfillment result will be used as the response, and rejection will end in a
+         HTTP response indicating failure.
+      */
+      event.respondWith(
+        caches
+          /* This method returns a promise that resolves to a cache entry matching
+             the request. Once the promise is settled, we can then provide a response
+             to the fetch request.
+          */
+          .match(event.request)
+          .then(function(cached) {
+            /* Even if the response is in our cache, we go to the network as well.
+               This pattern is known for producing "eventually fresh" responses,
+               where we return cached responses immediately, and meanwhile pull
+               a network response and store that in the cache.
+               Read more:
+               https://ponyfoo.com/articles/progressive-networking-serviceworker
+            */
+            var networked = fetch(event.request)
+              // We handle the network request with success and failure scenarios.
+              .then(fetchedFromNetwork, unableToResolve)
+              // We should catch errors on the fetchedFromNetwork handler as well.
+              .catch(unableToResolve);
+
+            /* We return the cached response immediately if there is one, and fall
+               back to waiting on the network as usual.
+            */
+            console.log('WORKER: fetch event', cached ? '(cached)' : '(network)', event.request.url);
+            return cached || networked;
+
+            function fetchedFromNetwork(response) {
+              /* We copy the response before replying to the network request.
+                 This is the response that will be stored on the ServiceWorker cache.
+              */
+              var cacheCopy = response.clone();
+
+              console.log('WORKER: fetch response from network.', event.request.url);
+
+              caches
+                // We open a cache to store the response for this request.
+                .open(version + 'pages')
+                .then(function add(cache) {
+                  /* We store the response for this request. It'll later become
+                     available to caches.match(event.request) calls, when looking
+                     for cached responses.
+                  */
+                  cache.put(event.request, cacheCopy);
+                })
+                .then(function() {
+                  console.log('WORKER: fetch response stored in cache.', event.request.url);
+                });
+
+              // Return the response so that the promise is settled in fulfillment.
+              return response;
+            }
+
+            /* When this method is called, it means we were unable to produce a response
+               from either the cache or the network. This is our opportunity to produce
+               a meaningful response even when all else fails. It's the last chance, so
+               you probably want to display a "Service Unavailable" view or a generic
+               error response.
+            */
+            function unableToResolve () {
+              /* There's a couple of things we can do here.
+                 - Test the Accept header and then return one of the `offlineFundamentals`
+                   e.g: `return caches.match('/some/cached/image.png')`
+                 - You should also consider the origin. It's easier to decide what
+                   "unavailable" means for requests against your origins than for requests
+                   against a third party, such as an ad provider
+                 - Generate a Response programmaticaly, as shown below, and return that
+              */
+
+              console.log('WORKER: fetch request failed in both cache and network.');
+
+              /* Here we're creating a response programmatically. The first parameter is the
+                 response body, and the second one defines the options for the response.
+              */
+              return new Response('<h1>Service Unavailable</h1>', {
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: new Headers({
+                  'Content-Type': 'text/html'
+                })
+              });
+            }
+          })
+      );
+    });
+        
+        
+        
+    self.addEventListener("activate", function(event) {
+  /* Just like with the install event, event.waitUntil blocks activate on a promise.
+     Activation will fail unless the promise is fulfilled.
+  */
+  console.log('WORKER: activate event in progress.');
+
+      event.waitUntil(
+        caches
+          /* This method returns a promise which will resolve to an array of available
+             cache keys.
+          */
+          .keys()
+          .then(function (keys) {
+            // We return a promise that settles when all outdated caches are deleted.
+            return Promise.all(
+              keys
+                .filter(function (key) {
+                  // Filter by keys that don't start with the latest version prefix.
+                  return !key.startsWith(version);
+                })
+                .map(function (key) {
+                  /* Return a promise that's fulfilled
+                     when each outdated cache is deleted.
+                  */
+                  return caches.delete(key);
+                })
+            );
+          })
+          .then(function() {
+            console.log('WORKER: activate completed.');
+          })
+      );
+    });
+    </script>
+
+         
+
+            
+            
+        </div>
+          
+          
+        <div class="col-lg-5 my-auto">
+          <div class="device-container">
+            <div class="device-mockup iphone6_plus portrait black">
+              <div class="device">
+                <div class="screen">
+                  <!-- Demo image for screen mockup, you can put an image here, some HTML, an animation, video, or anything else! -->
+                  <img src="img/sears.jpg" class="img-fluid" alt="">
+                </div>
+            
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+ 
+
+  <footer>
+    <div class="container">
+      <p>&copy; Your Website 2019. All Rights Reserved.</p>
+      <ul class="list-inline">
+        <li class="list-inline-item">
+          <a href="#">Privacy</a>
+        </li>
+        <li class="list-inline-item">
+          <a href="#">Terms</a>
+        </li>
+        <li class="list-inline-item">
+          <a href="#">FAQ</a>
+        </li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src="vendor/jquery/jquery.min.js"></script>
+  <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Plugin JavaScript -->
+  <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+
+  <!-- Custom scripts for this template -->
+  <script src="js/new-age.min.js"></script>
+
+</body>
+
+</html>
